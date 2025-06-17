@@ -578,23 +578,337 @@ runnable.invoke({"text":"请重复一次"})
 
 
 最后，当然也可以给MessageHistory整合一个Chain，来完成更复杂的应用逻辑,
+```py
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import SystemMessage
+from langchain_openai import ChatOpenAI
+from langchain_core.output_parsers import StrOutputParser
 
+# 提示词模板
+prompt_template = ChatPromptTemplate.from_messages([
+("user", "{text}")
+])
+#构建阿里云百炼大模型客户端
+llm = ChatOpenAI(
+    madel="qwen-pLus",
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
+    openai_api_key=load_key("BAILIAN_API_KEY"),
+)
+# 结果解析器 StrOutputParser会AIMessage转换成为str，实际上就是获取AIMessage的content属性。
+parser = StrOutputParser()
+#构建链
+chain = prompt_template | llm | parser
+runnable = RunnableWithMessageHistory(
+    chain,
+    get_session_history=lambda: history, # 匿名函数, 返回history
+) # 返回的key
+#第一次聊天，清除历史聊天记录
+history.clear()
+#每次聊天时，会自动带上Redis中的聊天记录。
+runnable.invoke（{"text":"你是谁"})
+runnable.invoke({"text":"请重复一次"})
+```
 
-
+## 总结
+这一章节接触了langchain中两个重要的工具，LCEL和BaseChatMessageHistory。其中，BaseChatMessageHistory主要用来管理聊天记录，而这些聊天记录都是与Al大模型进行多轮
+长聊天的基础。LCEL则是LangChain中的一个重要串联器。通过LCEL可以把LangChain中各种组件灵活的组装到一起，这不光是简化了基于LangChain的应用编码，更是构建个性化智
+能体的基础。
 
 
 ================================================================
 # 3_1 快速上手AI大模型工具机制
 24:06
+## 三、扩展机器人的能力边界
+AI大模型的强大能力来源于他学过的知识，但是，模型学习到的知识是有限的，如何扩展模型的能力边界呢？Tools工具机制就是一个解决这个问题的重要机制。工具机制就是让AI大模型
+去调用外部的API接口，去获取外部的数据，然后让AI大模型去使用这些数据，从而扩展模型的能力边界。Tools工具机制是现在几乎所有大模型都支持的一种机制，也是基于大模型构建
+本地应用的关键。
+·理解Tools工具机制
+·定制本地Tool工具
+·深入理解@tool注解
+·构建Agent执行工具
+
+
+## 1、理解Tools工具机制
+先从一个小问题入手。机器人能不能知道今天是几月几号呢？
+```py
+from config.load_key import load_key
+from langchain_openai import ChatOpenAI
+#构建阿里云百炼大模型客户端
+llm = ChatOpenAI(
+    model="qwen-plus",
+    basewunl="https://dashscope.aLiyuncs.com/compatible-mode/v1",
+    openai_api_key=load_key("BAILIAN_API_KEY"),
+)
+
+llm.invoke("今天是几月几号？").content
+```
+很明显，大模型是无法获取实时的时间的，因为没有哪个现成的资料能够实时告诉大模型当前的日期。即便有时候能给出一个答案，大概率也是一个不靠谱的答案。理解“今天"对于大模
+型是一个比较困难的事情，但是，对于我们人类来说却是很容易理解的问题。那么，有没有办法给大模型加一点“佐料”，让大模型能够找找外援，获取今天的日期呢？有。这个方法就是
+Tools工具机制。Tool工具机制是现在几乎所有主流大模型都支持的一种机制，也是基于大模型构建本地应用的关键。具体可以参见LangChain官方文档。
+
+## 2、定制本地Tool工具
+Tool工具机制的思想比较简单，他允许用户以AP接口的形式给大模型提供额外的帮助。当本地应用跟大模型聊天时，除了告诉大模型问题，同时也告诉他，本地应用能够提供哪些工具
+（比如查询今天的日期）。这样大模型会对问题进行综合判断，当单行觉得需要使用某些工具帮助解决问题时，就会向本地应用返回一个需要调用工具的请求。然后本地应用就可以执行工
+具，并将工具的执行结果返回给大模型。大模型再结合工具的执行结果，给出一个完整的答案。这样就可以让A大模型强大的知识推理能力和本地应用的私有业务能力形成良好的互动。
+我们先来看看如何使用Tool工具机制，帮助大模型解决获取今天日期的问题：
+
+```py
+# ---- test01/tools3-1.py
+import datetime
+from langchain.tools import tool
+
+#定义工具注意要添加注解
+@tool
+def get_current_date():
+    """获取今天日期."""
+    return datetime.datetime.today().strftime("%Y-%m-%d")
+
+#大模型绑定工具
+llm_with_tools = llm.bind_tools([get_current_date])
+#工具容器
+all_tools ={"get_current_date":get_current_date}
+#把所有消息存到一起
+query= "今天是几月几号" 
+messages = [query]
+#询问大模型。大模型会判断需要调用工具，并返回一个工具调用请求
+ai_msg = llm_with_tools.invoke(messages)
+print(ai_msg)
+
+messages.append(ai_msg)
+#打印需要调用的工具
+print(ai_msg.tool_calls)
+
+if ai_msg.tool_calls:
+    for tool_call in ai_msg.tool_calls:
+        selected_tool = all_tools[tool_call["name"].lower()]
+        tool_msg = selected_tool.invoke(tool_call)
+        messages.append(tool_msg)
+
+llm_with_tools.invoke(messages).content
+```
+输出：
+ ![img_quickstart/langchain-tools.png](img_quickstart/langchain-tools.png)
+
+ 从这个简单示例可以看到，当我们给大模型提供个一个get_current_date工具后，再询问大模型"今天是几月几号"。
+ 大模型第一次会返回一个带有tool_calls属性的ai_msg，这个属性就是需要调用的工具。接下来，我们再执行对应的
+ 工具方法，把执行结果和之前的消息一起传递给大模型，大模型就能够综合这些工具的结果，给出正确的答案了。
+
+
+## 3、深入理解@tool注解
+在还用tool工具时，有几个问题需要注意：
+### 3.1、自定义工具名称
+@tool注解是LangChain官方提供的一种装饰器，用于定义工具。他接受一个参数，这个参数就是工具名称。所以我们可以在声明工具时，自己定义工具的名字。如果不指定，默认就是
+方法名。
+```py
+@tool("get_current_date")
+def get_current_date():
+    """获取今天日期"""
+    return datetime.datetime.today().strftime("%Y-%m-%d")
+```    
+### 3.2、自定义工具描述
+在定义工具时，需要自定义工具描述。这个描述是给大模型用的，大模型会根据这个描述来判断是否需要调用这个工具。描述信息可以在方法中直接添加注释，也可以在@tool注解的
+description属性中定制。所以定义工具方法时，最好把注释写清楚。另外，在定义工具时，除了需要定义工具的描述，还可以定义参数的描述，这样大模型也能根据参数的描述来判断如
+何调用这个工具。例如：
+
+```py
+#------ test01/tools-3-2.py
+import datetime
+from langchain.tools import tool
+
+#定义工具注意要添加注释
+@tool(description="获取某个城市的天气")
+def get_city_weather(city:str):
+    """获取某个城市的天气
+    Args:
+        city：具体城市
+    """
+    return "城市"+city+"，今天天气不错"
+
+# 大模型绑定工具
+llm_with_tools = llm.bind_tools([get_city_weather])
+# 工具容器
+all_tools = {"get_city_weather":get_city_weather}
+# 把所有消息存到一起
+query= "北京今天的天气怎么样？"
+messages = [query]
+# 询问大模型。大模型会判断需要调用工具，并返回一个工具调用请求
+ai_msg = llm_with_tools.invoke(messages)
+messages.append(ai_msg)
+# 打印需要调用的工具
+print(ai_msg.tool_calls)
+if ai_msg.tool_calls:
+    for tool_call in ai_msg.tool_calls:
+        selected_tool = all_tools[tool_call["name"].lower()]
+        tool_msg = selected_tool.invoke(tool_call)
+        messages.append(tool_msg)
+        llm_with_tools.invoke(messages).content
+
+```
+output:
+![tools-3-2](img_quickstart/tools-3-2-out.png)
+
+## 3.3 深度定制工具
+除了使用@tool注解外，langchain中还提供了结构化工具StructuredTool.from_function同样可以用来定制工具。这种方式比@tool具有更多的可配置性，且不需要太多的代码。
+```py
+#---- test01/tools-3-3.py
+from langchain_core.tools import StructuredTool
+def bad_weather_tool(city:str):
+    """获取某个城市的天气
+    Args:
+        city：具体城市
+    """
+    return "城市"+city+"，今天天气不太好"
+
+# 定义工具。这个方法中有更多参数可以定制
+weatherTool =StructuredTool.from_function(func=bad_weather_tool,description="获取某个城市的天气",name="bad_weather_tool")
+
+all_tools={"bad_weather_tool":weatherTool}
+
+llm_with_tools = Llm.bind_tools([weatherTool])
+# 把所有消息存到一起
+query = "北京今天的天气怎么样？"
+messages = [query]
+# 第一次访问大模型返回的结果
+ai_msg = llm_with_tools.invoke(messages)
+messages.append(ai_msg)
+print(ai_msg.tool_calls)
+# 调用本地工具
+if ai_msg.tool_calls:
+    for tool_call in ai_msg.tool_calls:
+        selected_tool = all_tools[tool_call["name"].lower()]
+        tool_msg = selected_tool.invoke(tool_call)
+        messages.append(tool_msg)
+
+# 第二次返回的结果
+llm_with_tools.invoke(messages).content        
+```
+![tools-3-3-out.png](img_quickstart/tools-3-3-out.png)
+
+![qweather.com.png](img_quickstart/qweather.com.png)
+
 
 ================================================================
 # 3_2 深度定制本地工具
 16:42
 
+## 3.4结合大模型定制工具
+工具执行的是一个本地的方法，所以，对于大模型来说，这个工具的执行过程是不关注的，只要能拿到结果就行。那你会不会
+想到一些好玩的场景，比如在这个工具中，调用大模型获取工具的执行结果呢? 实际上，结合langchain的LCEL语法，
+langchain允许将一个接受字符串或者字典作为参数的Runnable实例直接转换成一个工具。这样就能极大地扩展工具的适用范
+围。 例如：
+
+```py
+#---- test01/tools-3-4.py
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts.chat import ChatPromptTemplate
+
+# LCEL定制一个chain
+prompt = ChatPromptTemplate.from_messages([("human","你好，请用下面这种语言回答我的问题 {language}.")])
+
+parser = StrOutputParser()
+
+chain = prompt | llm | parser
+
+# 将chain转换成工具
+as_tool =chain.as_tool(name="translatetool",description="翻译任务")
+
+all_tools = {"translatetool":as_tool}
+
+print(as_tool.args)
+# 绑定工具
+llm_with_tools = Llm.bind_tools([as_tool])
+
+query= "今天天气真冷，这句话用英语怎么回答？" 
+messages = [query]
+
+ai_msg = llm_with_tools.invoke(messages)
+messages.append(ai_msg)
+print(ai_msg.tool_calls)
+print(">>>>>>>>>>>>")
+if ai_msg.tool_calls:
+    for tool_call in ai_msg.tool_calls:
+        selected_tool = all_tools[tool_call["name"].lower()]
+        tool_msg = selected_tool.invoke(tool_call)
+        messages.append(tool_msg)
+llm_with_tools.invoke(messages).content
+```
+output:  ![tools-3-4-out.png](img_quickstart/tools-3-4-out.png)
+
+> 注意：这种方式在目前0.3版本还是实验阶段，未来可能发生改变。
+
+## 3.5使用langchain自己提供的工具
+实际上，langchain框架中就已经实现了很多常用的工具。具体可以参见 [LangChain工具包](https://python.langchain.com/docs/integrations/tools/) 。大部分都是一些国外的集成工具，有兴趣可以自行了解，这里就不多做演示了
+ ![langchain-tools-tookkits.png](img_quickstart/langchain-tools-tookkits.png)
+
+ LangChain工具包 实际上是 MCP。
+
+## 4、使用Agent执行工具
+在之前的众多案例中，你会发现有很多重复的代码。像定义工具集，判断并调用tool_call，保存历史信息等。langchain提供了一种更方便的方式，使用Agent
+```py
+#---- test01/tools-4_agent.py
+import datetime
+from langchain.tools import tool
+from langchain.agents import initialize_agent, AgentType
+
+#定义工具注意要添加注释
+@tool(description="获取某个城市的天气")
+def get_city_weather(city:str):
+    """获取某个城市的天气
+    Args:
+        city：具体城市
+    """
+    return "城市"+city+"，今天天气不错"
+
+#初始化代理
+agent = initialize_agent(
+    tools=[get_city_weather],# 使用装饰器定义的工具
+    llm=llm,
+    agent=AgentType.OPENAI_FUNCTIONS,
+    verbose=True
+)
+query ="北京今天天气怎么样"
+response = agent.invoke(query)
+print(response)
+```
+output : ![tools-4_agent.png](img_quickstart/tools-4_agent.png)
+这个智能体会在回答问题之前尝试进行推理。它会先判断是否需要调用工具，如果需要，它会调用工具，然后根据工具返回的结果，重新生成问题，直到得到一个答案为止。
+
+## 总结
+AI大模型为了能够更好的扩展自己的能力边界，提供了工具机制。通过工具机制，允许AI大模型主动参考客户端提供的API接口，
+从而使得AI大模型能够有效的和客户端的本地业务能力结合，诞生更多的想象空间。而langchain框架则对Al大模型的工具机制
+进行了非常完善的封装，使得工具机制可以更好的落地。我们学习langchain的过程中，除了要关注各种各样的实现工具外，更应
+该关注langchain提供的那些Al大模型工具机制的使用技巧，这都是不可多得的行业经验。另外，在本章最后的演示中，我们也接
+触到了Agent智能体的概念。网上你应该接触过各种各样对于智能体的解读，其实落地到应用层面，智能体就是由语言模型、工具集
+和执行逻辑共同组成的，能够处理用户输入问题后的一系列业务逻辑的逻辑封装。
 
 ================================================================
 # 4_1 深入理解什么是文本向量化
 22:44
+https://www.bilibili.com/video/BV1Eg5ezyE4A?spm_id_from=333.788.player.switch&vd_source=4212b105520112daf65694a1e5944e23&p=11
+
+## 四、使用Embedding实现自然语言搜索
+有了之前与大模型对接的经历后，接下来，我们将利用AI大模型动手搭建一个RAG智能客服系统。这个系统的核心是要把一些企业额内部的产品手册、常见问题手册等整理成一个知识
+库，允许用户用自然语言的方式向客服系统询问知识库相关的问题。而智能客服系统可以理解用户的问题，并基于内部的知识库以及大模型的理解能力给出用户想要的答案。这也是AI大
+模型在很多企业最典型的落地应用的方式。在动手搭建应用之前，需要带大家了解一个前置的知识：文本向量化
+> ·什么是Embedding文本向量化
+> ·通过向量计算语义相似度
+> ·向量数据持久化保存
+> ·链式使用Retriver
+
+## 1、什么是Embedding文本向量化
+Al大模型相比于传统的数据检索，最大的区别在于能够"理解"人类的语言。比如你向ChatGPT问"我是谁"和"我叫什么名字"，ChatGPT都能够把他们正确理解成一个相似的问题。那么计
+算机是如何理解这些相似的话语之间的意思呢？
+我们需要清楚，计算机并不能"理解"人类的语言，本质上，他只能进行各种各样的数据计算。所以要让计算机"理解"人类的语言，我们只能将语言拆成Token，再将Token数据化，转成
+一串串的数字，这样才能让计算机通过计算的方式去理解Token之间的相似性，从而进一步理解语言背后的语义信息。
+接下来第一个问题就是，我们要如何用数字来表示语言，同时又要保留语言背后的语意呢？这中间经过了一系列的算法改进。目前比较主流的方法是对语言进行一些语法和词法层面的分
+析，将一个文本转换成多维的向量，然后通过向量之间的计算，来分析文本与文本之间的相似性。
+向量代表一个有位置，有方向的变量。一个二维的向量可以理解为平面坐标轴上的一个坐标点(x,y)，他有x轴和y轴两个维度，在计算机中，就可以用一个二维的数组来表示[x,y]。类似的
+一个多维的数组就对应一个更多维度的向量。
+而文本向量化，就是通过机器学习的方式将一个文本转化成一个多维向量，后续可以通过一些数学公式对多个向量进行计算。这既是为了更好的让计算机理解"语言”，同时他也是A大模
+型的基础。
+实际上，很多A大模型产品都提供了文本向量化的功能。以国内的阿里云百炼平台为例，就推出了多个不同的向量化模型：
+07:33
 
 ================================================================
 # 4_2 引入向量数据库实现向量检索
