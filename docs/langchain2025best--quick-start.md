@@ -1339,8 +1339,9 @@ print(response.content)
 ## 4、总结
 这里我们快速的实现了一个简单的RAG应用，但是，对RAG的思考其实远不止于此。RAG应用的核心是在向AI大模型询问问题时，尽量提供更高质量的参考信息，但是，最终AI大模型给
 出的回答靠不靠谱，我们却无法保证。颇有点尽人事，听天命的感觉。但是，作为应用开发者，我们是要对最终的答案负责。那么，要如何提高RAG应用的最终质量呢？这就需要我们对
-RAG的流程重新进行深度思考。这里，不妨再来回顾一下RAG的基础流程，思考下，在我们已经实现的这个标准流程基础上，我们要如何验证RAG应用的质量？并且如何提高RAG应用的
-质量呢？
+RAG的流程重新进行深度思考。这里，不妨再来回顾一下RAG的基础流程，思考下，在我们已经实现的这个标准流程基础上，我们要
+> 1. 如何验证RAG应用的质量？
+> 2. 如何提高RAG应用的质量？
 
 
 ================================================================
@@ -1348,21 +1349,321 @@ RAG的流程重新进行深度思考。这里，不妨再来回顾一下RAG的�
 29:33
 https://www.bilibili.com/video/BV1Eg5ezyE4A?spm_id_from=333.788.player.switch&vd_source=4212b105520112daf65694a1e5944e23&p=15
 
+## 1. 如何验证RAG应用的质量？
+ 
+
+ragas
+
+## 2. 如何提高RAG应用的质量？
+ 完整、正确、重要的信息放前面
+
+### 2.1 rag的indexing阶段
+ 数据质量优化： ![optimize-data-quality](img_quickstart/optimize-data-quality.png)
+ 把文档整理成qa的形式。
+ 把表格转成文字形式的markdown形式。
+ 把图片的内容尽量有ocr 转换成文字。
+ 对于html,用爬虫提取关键内容。
+
+### 2.2rag的检索阶段
+  对用户的问题 拆分和转写:  ![rag2-retrieval-optim.png](img_quickstart/rag2-retrieval-optim.png) 
+  重要的信息放前面, 或者 让大语言模型对其 rerank  : ![rag2-retrieval-alibailian-rerank](img_quickstart/rag2-retrieval-alibailian-rerank.png)
+  
 
 ================================================================
 # 6_1 使用Ollama部署本地DeepSeek
 26:01
+## 六、本地构建大模型服务
+在之前章节我们用美团的客服问答信息，整合阿里云百炼的通义千问大模型，构建起了一个RAG应用。但是，你可能会发现一个问题。我们这个RAG应用虽然也算实现了只能问答的功
+能，但是，需要将美团的客服问答信息上传到阿里的大模型上，这是不是就造成了**数据安全的问题**？当然在我们这个案例中，问题可能还不太严重，因为我们使用的数据就是美团对外公开的数据。但是，如果是一些涉及到企业机密的信息呢？因此，很多企业在构建基于A大模型的应用时，都会采用**本地部署大模型**的方式。这样即可以减少访问开源大模型的网络和
+Token成本，也可以防止数据泄露。这一章节，我们就来搭建一个本地大模型服务体系。首先你要清楚，我们能够搭建本地的大模型服务，这得益于现在很多大模型的研发者都会将辛苦
+训练出来的大模型对外开源，这样我们才能接触到这些预训练模型。然后，现在构架本地大模型的方式和工具也有很多，这里只是分享一套最为典型的大模型应用体系。
+* 1、使用ollama本地运行DeepSeek
+* 2、本地应用调用Ollama模型
+* 3、One-APl部署本地大模型网关
+* 4、FastGPT搭建本地知识库
+
+## 1、使用ollama本地运行DeepSeek
+Ollama是一个可以在本地运行的大模型服务平台。官网地址： https://ollama.com/
+
+如何安装ollama ： https://github.com/ollama/ollama/blob/main/docs/linux.md
+
+```sh
+# 在一个terminal上
+~$ ollama serve
+
+# 在 另一个terminal上
+~$ ollama -v
+ollama version is 0.9.2
+
+~$ ollama -h
+Large language model runner
+
+Usage:
+  ollama [flags]
+  ollama [command]
+
+Available Commands:
+  serve       Start ollama
+  create      Create a model from a Modelfile
+  show        Show information for a model
+  run         Run a model
+  stop        Stop a running model
+  pull        Pull a model from a registry
+  push        Push a model to a registry
+  list        List models
+  ps          List running models
+  cp          Copy a model
+  rm          Remove a model
+  help        Help about any command
+
+Flags:
+  -h, --help      help for ollama
+  -v, --version   Show version information
+
+Use "ollama [command] --help" for more information about a command.
+```
+
+ollama模型搜索  https://ollama.com/search 
+             ![img_quickstart/ollama-search.png](img_quickstart/ollama-search.png)
+这里1B就表示1Bilion十亿参数。通常参数越多，模型推理能力越强。但是相应的，运行模型所需要的资源也就越多。这里我们可以使用参数量最小的deepseek-r1:1.5b作为本地测试。
+执行ollama run deepseek-r1:1.5b。Ollama就会自行下载模型到本地目录，并启动对应的服务。
+> 如果是windows系统，Ollama会默认把模型文件放在C:\Users\用户名.ollama\models\目录下。如果需要在其他目录下存放模型，可以在ollamarun指令后面加上--
+> model-dir参数，指以模型存放的目录。
+> % ollama run deepseek-r1:1.5b --model-dir /Users/zhangjun/ollama/models
+> 或者也可以配置环境变量OLLAMA_MODELS，通义定制模型文件存放的目录。
+ ![ollama-run-deepseek-r1.png](img_quickstart/ollama-run-deepseek-r1.png)
+这样就部署好了一个本地的大模型服务。我们就可以使用ollama的命令行工具来测试这个模型了
+
+* remark: modelscope.cn  是一个国内的大模型库网站。
+```sh 
+# ------------------------------------- 
+# <!-- https://modelscope.cn/models -->
+~$ ollama pull modelscope.cn/unsloth/Mistral-Small-3.1-24B-Instruct-2503-GGUF
+pulling manifest 
+pulling manifest 
+pulling 6d670773c390:   5% ▕██████ 
+
+~$ ollama pull modelscope.cn/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF
+pulling manifest 
+pulling f3bdf9cf31de: 100% ▕████████████████████████████████████████████████████████████▏ 1.1 GB                         
+pulling c5ad996bda6e: 100% ▕████████████████████████████████████████████████████████████  556 B                         
+pulling 2420fe344b5f: 100% ▕████████████████████████████████████████████████████████████  182 B                         
+pulling 6e4c38e1172f: 100% ▕████████████████████████████████████████████████████████████ 1.1 KB                         
+pulling 38a67c3fe6fb: 100% ▕████████████████████████████████████████████████████████████▏  192 B                         
+verifying sha256 digest 
+writing manifest 
+success 
+
+~$ ollama run  modelscope.cn/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF
+>>> 你好
+你好！很高兴见到你，有什么我可以帮忙的吗？
+```
+
+## 2、本地应用调用Ollama模型
+### 1-调用Ollama的聊天模型
+基于LangChain良好的整体设计，我们也可以像之前使用其他模型一样使用Ollama的模型。
+```py
+from langchain_community.chat_models import ChatOllama
+llm = ChatOllama(model="deepseek-r1:1.5b",base_url="http://localhost:11434")
+llm.invoke("你是谁？能帮我解决什么问题？")
+```
+
+> 参数方面，由于Ollama是本地部署的，所以自然不需要api_key进行计费了。另外，部署地址不稳定，所以需要指定base_url。
+
+另外，其实Ollama也是兼容OpenAl的接口协议的，所以，我们也可以使用OpenAl的接口来调用Ollama的模型。
+```py
+from langchain_openai import ChatOpenAI
+llm = ChatOpenAI(model="deepseek-rl:1.5b",base_url="http://localhast:11434/v1", openai_api_key="123")
+llm.invoke("你是谁？能帮我解决什么问题？")
+```
+
+> 注意访问地址是有不同的。
+
+接下来，聊天记录、本地工具、链式调用等操作，与之前使用LangChain的方式基本没有什么区别。你都可以动手试试。
+
+### 2-调用Ollama的Enbedding模型
+Ollama平台上不光包含大语言模型，同时也有很多Embedding向量化模型。
+ ![Ollama-Enbedding-model.png](img_quickstart/Ollama-Enbedding-model.png)
+
+nomic-embed-text 最常用 
+```sh
+~$ ollama pull  modelscope.cn/nomic-ai/nomic-embed-text-v1.5-GGUF
+pulling manifest 
+pulling d4e388894e09: 100% ▕████████████████████████████████████████████████████▏  84 MB                         
+pulling 885769ff7150: 100% ▕████████████████████████████████████████████████████▏   17 B                         
+pulling c71d239df917: 100% ▕████████████████████████████████████████████████████▏  11 KB                         
+pulling 8ad2be369ff9: 100% ▕████████████████████████████████████████████████████  205 B                         
+verifying sha256 digest 
+writing manifest 
+success 
+```
+用ollama pull nomic-embed-text 指令拉取，不需要运行。接下来就可以使用LangChain中提供的OllamaEmbedding类来调用这些模型了。
+```sh
+#安装oLLama依赖
+!pip install langchain_ollama
+```
+
+```py
+from langchain_ollama import OllamaEmbeddings
+embedding_model = OllamaEmbeddings(model="nomic-embed-text",base_url="http://locaLhost:11434")
+embedding =embedding_model.embed_query("你好")
+print(len(embedding))
+```
+> 从这个案例也能看到，Ollama的一些核心功能正在从langchain_community逐步迁移到langchain_ollama中。这些依赖关系的调整，也是未来版本经常会出现的事情。
+
+接下俩，同样可以用这个向量化模型逐步构建RAG应用。这和我们之前演练的案例基本上是一样的。对于RAG应用来说，Embedding和LLM其实并不一定需要采用同一个模型，不同模
+型组合，有些时候也可能带来更好的效果。
+
+> * 模型推理需要的显存大小 大概是 模型文件size的2倍，模型微调需要的显存大小 大概是 模型文件size的3倍。
 
 
+ 
 ================================================================
 # 6_2 部署One-API大模型网关
 19:09
+## 3、One-API搭建本地大模型网关
+如果你的本地应用稍微复杂一点，就可能需要多个大模型协同工作了。这时，One-API就派上了用场。One-API是一个本地大模型网关。One-API提供了一套遵循OpenAI标准的统一接
+入API，而后端可以把请求转发给多个不同的大模型产品。
+ ![one-api-fw.png](img_quickstart/one-api-fw.png)
+
+One-APl的安装和部署， 可以参考: https://github.com/songquanpeng/one-api 。 重点关注他支持的大模型产品。
+### 1-Docker部署
+One-API有多种部署方式。最简单的是使用Docker部署。
+```sh
+#并发量小，用SQLlite
+docker run --name one-api -d --restart always -p 3000:3000 -e TZ=Asia/Shanghai -v /Users/roykingw/docker/one-api:/datajustsong/one-api
+#并发量大,用MySQL 。 添加'-e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi"' 指向MySQL
+```
+启动完成后，访问 localhost:3000，就可以进入One-API的页面
+ ![one-api-open.png](img_quickstart/one-api-open.png)
+
+![one-api-channel](img_quickstart/one-api-channel-add.png)
+
+![one-api-channel-token.png](img_quickstart/one-api-channel-token.png)
+
+## 4-通过One-APi调用大模型
+One-APi提供了一套兼容OpenAI规范的访问接口，所以，我们可以直接使用OpenAI的相关客户端访问One-API
+
+ ![one-api-chatopenai-gLm-3-turbo.png](img_quickstart/one-api-chatopenai-gLm-3-turbo.png)
+```py
+from langchain_openai import ChatOpenAI
+llm = ChatOpenAI(
+modeL="gLm-3-turbo",#one-api中支持的model。默认会找这个modeL的第一个渠道进行转发
+openai_api_key="sk-3FWIdr7ji3lHCz4sEcAe71C5F46f4f4e971aCe980736E09f",#one-api中分配的令牌
+base_url="http://localhost:3000/v1") #one-api的访间地址
+llm.invoke("你是谁？能帮我解决什么问题？")
+```
+通过One-API，我们就可以在本地快速构建起能够支持多个不同大模型的大模型服务体系，可以灵活构建本地的大模型应用。例如，对于一些不涉及到机密数据的问题，可以调用开源大
+模型，获得更稳定的服务。而对于一些涉及到了公司机密数据的问题，就可以调用本地部署的大模型，保证数据安全。
+
+当然，如何区分用户的问题是否涉及到公司机密数据呢？这就是典型的意图识别的任务，通常通过合理定制提示词就可以做到。
+
+另外，One-APi还有很多相关的项目。在github主页的下面就能看到。
+ ![one-api-relativ-prjs.png](img_quickstart/one-api-relativ-prjs.png)
+
+这其中，FastGPT算是最有价值的项目了。通过FastGPT，我们可以在Weby页面上快速构建一个RAG智能问答系统。
+
+
+
 
 ================================================================
 # 6_3 部署FastGPT构建本地应用
 27:06
+https://www.bilibili.com/video/BV1Eg5ezyE4A?spm_id_from=333.788.player.switch&vd_source=4212b105520112daf65694a1e5944e23&p=18
 
+## 4、FastGPT搭建本地知识库
+FastGPT项目地址: https://github.com/labring/FastGPT
+默认情况下，FastGPT只配置了GPT的模型，如果需要接入其他模型，可以通过整合one-api进行部署，参见文档：https://doc.tryfastgpt.ai/docs/development/modelconfig/one-api/
+FastGPT有多种部署模式，这里采用基于Docker进行本地部署。
 
+接下来，我们就用FastGPT+本地Ollama，快速部署一个RAG智能问答系统。
+### 1-下载docker-compose.yml文件
+FastGPT提供了一套基于docker-compose的快速部署方式。需要下载两个文件，config.json(fastGPT自己的配置文件)和docker-compose.yml(docker-compose部署文件)
+```sh
+mkdir fastgpt
+cd fastgpt
+curl -O https://raw.githubusercontent.com/labring/FastGPT/main/projects/app/data/config.json
+
+# pgvector 版本(测试推荐， 简单快捷)
+curl -o docker-compose.yml https://raw.githubusercontent.com/labring/FastGPT/main/files/docker/docker-compose-pgvector.yml
+```
+  
+###  2-使用docker-compsoe直接启动镜像
+docker-compose.yml文件中配置了fastGPT所有相关的服务。默认情况下，不做任何修改，我们就可以直接启动。
+```sh
+docker-composeup -d
+```
+当然，如果你熟悉docker-compose的配置的haul，也可以配置成自己的服务
+
+![fastgpt--one-api.png](img_quickstart/fastgpt-deploy-arch.png)
+
+### 3-配置基础环境
+首先：需要配置One-API中访问大模型的渠道和令牌。这个配置方式和之前使用One-API没有什么区别。只是，默认情况下，FastGPT把One-API服务部署到了3001端口。原来的
+300o端口由fastGPT自己使用。然后：我们需要修改docker-compose.yml文件。主要是将FastGPT的CHAT_API_KEY修改为One-API中生成的令牌。然后重启fastGPT
+
+接下来：需要配置FastGPT自己使用的大模型在config.json文件中配置了FastGPT可以访问的大模型。这里需要定制的是llmModels大语言模型和vectorModels向量化模型。llmModels 大语言模型，可以配置成本地在Ollama上运行的那些模型。例如：
+ ![change-fastgpt-config-json.png](img_quickstart/change-fastgpt-config-json.png)
+
+向量化模型部分，可以采用M3E模型。这里使用Docker直接运行M3E镜像：
+```sh
+#CPU运行
+docker run -d --name m3e -p 6008:6008 registry.cn-hangzhou.aliyuncs.com/fastgpt_docker/m3e-large-api:latest
+# GPU运行可以加上参数 一一gpus 
+```
+
+接下来：需要在One-API中配置M3E模型的访问渠道
+![m3e-cfg.png](img_quickstart/m3e-cfg.png)
+
+![docker-m3e](img_quickstart/docker-m3e.png)
+
+最后，重启fastGPT镜像
+```sh
+docker-compose down
+docker-compose up -d
+```
+![docker-fastgpt](img_quickstart/docker-fastgpt.png)
+
+![fastgpt-api-key](img_quickstart/fastgpt-api-key.png)
+
+ ![fastgpt-webpage.png](img_quickstart/fastgpt-webpage.png)
+
+## 5、使用总结
+在这一章节的演练过程中，我们不只是搭建了本地大模型，其实是围绕Ollama搭建了一整套本地大模型的基础服务。这里面，甚至可以看到一些传统服务架构的影子
+ ![ollama-local-lm-fw.png](img_quickstart/ollama-local-lm-fw.png)
+
+如何把单行工具用好，这是业界很多人都在不断探索的一个目标。这些开源的工具和框架，就是最为成熟的业界经验。
+例如，有了one-api作为网关，我们可以很容易的在同一个平台上访问多个大模型。这意味着我们完全可以结合多个大模型共同来处理一些复杂的问题。
+另外，fastGPT中还提供了工作流，这也是结合大模型的一种使用经验。这些工作流并不难理解，例如fastGPT中一个默认的工作流就是先判断用户的问题和产品是否相关，不相关直接拒
+绝（例如询问今天天气怎么样）。相关问题再去调用大模型（例如如何发起退款，退款多长时间到账等）。
+ ![fastgpt-workflow.png](img_quickstart/fastgpt-workflow.png)
+
+这个过程中，“问题分类"和"调用大模型"这两个步骤，都可以交由大模型完成。而基于任务的难度和性质不同，将他们交由不同的大模型处理也是不错的选择。例如"问题分类"步骤，通
+常并不涉及到企业内部的机密信息，所以，直接交由互联网上现成的大模型处理，可以直接节省很多计算资源。而后续"调用大模型"步骤，放在本地大模型处理，这样就可以保证数据安
+全。另外，由于在这个步骤需要处理的任务其实是比较单一的，所以，针对这个步骤，对大模型进行微调，形成自己的行业大模型也是一个非常好的选择。
 ================================================================
 # 7 部署大模型网络服务
 33:38
+https://www.bilibili.com/video/BV1Eg5ezyE4A?spm_id_from=333.788.videopod.episodes&vd_source=4212b105520112daf65694a1e5944e23&p=19
+
+## 七、部署大模型网络服务
+我们基于LangChain框架可以快速构建一些基于大模型的应用，但是目前这些应用其实都是基于Python语言开发出来的。如果不能像One-APl或者FastGPT那样提供网络服务，那么使用
+起来还是比较麻烦。这一章节，就给大家介绍几种常用的基于大模型的网络服务开发的方式。
+> ·1、使用LangServer构建大模型网络服务
+> ·2、使用Gradio快速构建前端页面
+
+## 1、使用LangServer构建大模型网络服务
+LangServer是一个用于构建和部署基于自然语言处理模型的应用程序的框架，文档地址： https://python.langchain.com/docs/langserve/ 。
+他使得开发者可以轻松地将训练好的模型部署成为web服务，对外提供API结构，以便于其他应用程序进行调用。如果针对LangChain框架来说，那就是可以简单快速的把一个Chain暴露成网络服务，供其他应用访问。LangServer主打的就是一个功能完善，简单易上手。
+
+### 1-安装langserver依赖
+LangServer提供了统一的依赖，用来构建Web服务。
+```sh
+#构建Lanaserver服务端的依赖
+#!pip install "langserve[server]"
+#构建Lanaserver客户端的依赖
+#!pip install "langserve[client]"
+#服务端+客户端整合依赖
+!pip install "langserve[all]"
+```
+
+03:46
