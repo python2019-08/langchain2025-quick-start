@@ -85,7 +85,7 @@ os.environ["LANGSMITH_API_KEY"] = load_key("LANGSMITH_API_KEY")
 ```
 
 
-接下来，可以使用LangChain提供的chat_model快速访问互联网上的各种Al大模型产品。以OpenAl为例，只需要引l入LangChain针对OpenAl的依赖，就可以快速完成访问。
+接下来，可以使用LangChain提供的chat_model快速访问互联网上的各种Al大模型产品。以OpenAl为例，只需要引入LangChain针对OpenAl的依赖，就可以快速完成访问。
 ```py
 import os
 from config.load_key import load_key
@@ -98,7 +98,7 @@ from langchain.chat_models import init_chat_model
 #创建访问OpenAI的Model。
 # model = init_chat_model("gpt-4o-mini",model_provider="openai")
 #openai在国内是无法直接访问的，需要科学上网。这里指定base_urL是因为使用的是openai的国内代理，  2233.ai/chatgpt 。
-model = init_chat_model("gpt-4o-mini",model_provider="openai",base_url="https:/ /api.gptsapi.net/v1")
+model = init_chat_model("gpt-4o-mini",model_provider="openai",base_url="https://api.gptsapi.net/v1")
 ```
 
 API_KEY很重要，通常不要直接在代码中写死，而是放到环境变量中。这里是用一个文件做演示。案例中用的是一个国内能访问的代理。需要自行到网站上申请
@@ -113,13 +113,31 @@ messages = [
 #返回一个AIMesSage对象。
 model.invoke(messages)
 # 
-# AIMessage(content='你好, 你好吗?', additional_kwargs={'refusal': None}, response_metadata={'token_usage': {'completion_tokens': 5, ?
-# s'prompt_tokens': 24, 'total_tokens': 29, 'completion_tokens_details': {'accepted_prediction_tokens': 0, 'audio_tokens': 0, ?
-# <'reasoning_tokens': 0, 'rejected_prediction_tokens': 0}, 'prompt_tokens_details': {'audio_tokens': 0, 'cached_tokens': 0}}, 'model_name': 2
-# s'gpt-40-mini-2024-07-18', 'system_fingerprint': 'fp_ded0d14823', 'id': 'chatcmpl-BJJfKwv0D3RAUId6m2tV1fRjJfi2f', 'finish_reason': 'stop', ?
-# 'logprobs': None}, id='run-c8ff5af7-1d0b-4da0-b456-57683278f2ea-0', usage_metadata={'input_tokens': 24, 'output_tokens': 5, 'total_tokens':2
-# , 29, 'input_token_details': {'audio': 0, 'cache_read': O}, 'output_token_details': {'audio': 0, 'reasoning': 0}})
-
+# AIMessage(content='你好, 你好吗?', 
+#   additional_kwargs={'refusal': None}, 
+#   response_metadata={'token_usage': 
+#                 {'completion_tokens': 5, ? s'prompt_tokens': 24, 
+#                     'total_tokens': 29, 
+#                     'completion_tokens_details': 
+#                         {'accepted_prediction_tokens': 0, 'audio_tokens': 0, ?
+#                                 <'reasoning_tokens': 0, 
+#                         'rejected_prediction_tokens': 0
+#                         }, 
+#                         'prompt_tokens_details': {'audio_tokens': 0, 
+#                                             'cached_tokens': 0}
+#                 }, 
+#         'model_name': 2 s'gpt-40-mini-2024-07-18', 
+#         'system_fingerprint': 'fp_ded0d14823', 
+#         'id': 'chatcmpl-BJJfKwv0D3RAUId6m2tV1fRjJfi2f', 
+#         'finish_reason': 'stop', ? 'logprobs': None}, 
+#  id='run-c8ff5af7-1d0b-4da0-b456-57683278f2ea-0', 
+#  usage_metadata={'input_tokens': 24, 
+#             'output_tokens': 5, 
+#             'total_tokens':2, 29, 
+#             'input_token_details': {'audio': 0, 'cache_read': O}, 
+#             'output_token_details': {'audio': 0, 'reasoning': 0}
+#             }
+# )
 ```
 从这个案例可以了解到与A大模型交互时，可以有多种不同的消息。
 * ·user:用户输入的问题
@@ -320,6 +338,7 @@ for i in range(5):
 ## 6、总结
 这一章节，我们还只是初步上手了langchain的一些基础功能。当然，langchain的功能远不止这些。其中不光提供了很多常用的功能，更重要的是，在langchain框架中，积累了很多人对
 于AI大模型应该如何落地的思考和经验。未来我们会一步步探索。
+
 ================================================================
 # 2_1 LCEL链式表达式
 22:14
@@ -365,8 +384,7 @@ chain = prompt_template | llm | parser
 print(chain.invoke({"text":"nice to meet you", "language":"chinese"}))
 ```
 
-通过LangChain的LCEL链式语法，就可以直接构建更为复杂的基于大模型的处理链。例如将某一次大模型调用的结果再次访问另一个大模型，那就只需要再chain的后面再链接更多的组
-件即可。
+通过LangChain的LCEL链式语法，就可以直接构建更为复杂的基于大模型的处理链。例如将某一次大模型调用的结果再次访问另一个大模型，那就只需要再chain的后面再链接更多的组件即可。
 
 ```py
 #继续构建更复杂的链
@@ -543,6 +561,7 @@ ReJSON-RL
 这样，下次再启动应用，就可以直接从Redis中加载聊天记录，而不用重新对话。
 补充：基于LangChain良好的设计，也可以通过继承的方式来扩展其他存储系统的依赖。例如用开发工具打开下BaseChatMessageHistory的源码，就能看到，在
 BaseChatMessageHistory源码的注释中就演示了，如何扩展出一个基于文件保存消息的实现类。
+
 ================================================================
 # 2_3 聊天历史服务整合LCEL链
 12:09
@@ -637,7 +656,7 @@ from langchain_openai import ChatOpenAI
 #构建阿里云百炼大模型客户端
 llm = ChatOpenAI(
     model="qwen-plus",
-    basewunl="https://dashscope.aLiyuncs.com/compatible-mode/v1",
+    base_url="https://dashscope.aLiyuncs.com/compatible-mode/v1",
     openai_api_key=load_key("BAILIAN_API_KEY"),
 )
 
@@ -698,8 +717,7 @@ llm_with_tools.invoke(messages).content
 ## 3、深入理解@tool注解
 在还用tool工具时，有几个问题需要注意：
 ### 3.1、自定义工具名称
-@tool注解是LangChain官方提供的一种装饰器，用于定义工具。他接受一个参数，这个参数就是工具名称。所以我们可以在声明工具时，自己定义工具的名字。如果不指定，默认就是
-方法名。
+@tool注解是LangChain官方提供的一种装饰器，用于定义工具。他接受一个参数，这个参数就是工具名称。所以我们可以在声明工具时，自己定义工具的名字。如果不指定，默认就是方法名。
 ```py
 @tool("get_current_date")
 def get_current_date():
@@ -707,8 +725,8 @@ def get_current_date():
     return datetime.datetime.today().strftime("%Y-%m-%d")
 ```    
 ### 3.2、自定义工具描述
-在定义工具时，需要自定义工具描述。这个描述是给大模型用的，大模型会根据这个描述来判断是否需要调用这个工具。描述信息可以在方法中直接添加注释，也可以在@tool注解的
-description属性中定制。所以定义工具方法时，最好把注释写清楚。另外，在定义工具时，除了需要定义工具的描述，还可以定义参数的描述，这样大模型也能根据参数的描述来判断如
+在定义工具时，需要自定义工具描述。这个描述是给大模型用的，大模型会根据这个描述来判断是否需要调用这个工具。描述信息可以在方法中直接添加**注释**，也可以在@tool注解的
+**description属性**中定制。所以定义工具方法时，最好把注释写清楚。另外，在定义工具时，除了需要定义工具的描述，还可以定义参数的描述，这样大模型也能根据参数的描述来判断如
 何调用这个工具。例如：
 
 ```py
@@ -761,7 +779,9 @@ def bad_weather_tool(city:str):
     return "城市"+city+"，今天天气不太好"
 
 # 定义工具。这个方法中有更多参数可以定制
-weatherTool =StructuredTool.from_function(func=bad_weather_tool,description="获取某个城市的天气",name="bad_weather_tool")
+weatherTool =StructuredTool.from_function(func=bad_weather_tool,
+                    description="获取某个城市的天气",
+                    name="bad_weather_tool")
 
 all_tools={"bad_weather_tool":weatherTool}
 
@@ -879,7 +899,8 @@ AI大模型为了能够更好的扩展自己的能力边界，提供了工具机
 从而使得AI大模型能够有效的和客户端的本地业务能力结合，诞生更多的想象空间。而langchain框架则对Al大模型的工具机制
 进行了非常完善的封装，使得工具机制可以更好的落地。我们学习langchain的过程中，除了要关注各种各样的实现工具外，更应
 该关注langchain提供的那些Al大模型工具机制的使用技巧，这都是不可多得的行业经验。另外，在本章最后的演示中，我们也接
-触到了Agent智能体的概念。网上你应该接触过各种各样对于智能体的解读，其实落地到应用层面，智能体就是由语言模型、工具集
+触到了Agent智能体的概念。
+网上你应该接触过各种各样对于智能体的解读，其实落地到应用层面，智能体就是由语言模型、工具集
 和执行逻辑共同组成的，能够处理用户输入问题后的一系列业务逻辑的逻辑封装。
 
 ================================================================
@@ -942,7 +963,7 @@ print(len(query_result)) # 向量维度(remark:需要关注)
 这样就可以将“语言”的理解问题转换成为数学计算的问题。
 在langchain中，Embeddings模型是抽象的顶层父类，而具体的Embeddings模型则是继承自Embeddings，并且每个具体的
 Embeddings模型都对应一个具体的Embeddings模型。这里需要注意一下的是不同的Embeddings转换出来的向量，维度和结果
-都是不一样的。当使用一个向量化模型时，需要额外关注一下向量的维度，因为这会影响到后续对向量的处理
+都是不一样的。当使用一个向量化模型时，**需要额外关注一下向量的维度**，因为这会影响到后续对向量的处理
 
 ## 2、通过向量计算语义相似度
 把文本转换成为向量有什么用呢？最核心的作用是可以通过向量之间的计算，来分析文本与文本之间的相似性。计算的方法有很多种，其中用得最多的是向量余弦相似度。Python语言
@@ -1653,17 +1674,248 @@ https://www.bilibili.com/video/BV1Eg5ezyE4A?spm_id_from=333.788.videopod.episode
 
 ## 1、使用LangServer构建大模型网络服务
 LangServer是一个用于构建和部署基于自然语言处理模型的应用程序的框架，文档地址： https://python.langchain.com/docs/langserve/ 。
-他使得开发者可以轻松地将训练好的模型部署成为web服务，对外提供API结构，以便于其他应用程序进行调用。如果针对LangChain框架来说，那就是可以简单快速的把一个Chain暴露成网络服务，供其他应用访问。LangServer主打的就是一个功能完善，简单易上手。
+他使得开发者可以轻松地将训练好的模型部署成为web服务，对外提供API结构，以便于其他应用程序进行调用。
+如果针对LangChain框架来说，那就是可以简单**快速的把一个Chain暴露成网络服务**，供其他应用访问。
+LangServer主打的就是一个功能完善，简单易上手。
+
+### 1.1 langserve官网
+https://python.langchain.com/docs/langserve/
+
+![langchain--docs-langserve.png](img_quickstart/langchain--docs-langserve.png)
 
 ### 1-安装langserver依赖
 LangServer提供了统一的依赖，用来构建Web服务。
 ```sh
-#构建Lanaserver服务端的依赖
+#构建Lanaserver 服务端 的依赖
 #!pip install "langserve[server]"
-#构建Lanaserver客户端的依赖
+
+#构建Lanaserver 客户端 的依赖
 #!pip install "langserve[client]"
+
 #服务端+客户端整合依赖
 !pip install "langserve[all]"
 ```
+ 
 
-03:46
+### 2-使用langchain构建一个chain
+这里我们用langchain框架构建一个比较简单的chain用来演示langserve的使用方法。
+```py
+# import 
+
+# 提示词模板
+prompt_template = ChatPromptTemplate.from_messages([
+        ("system","Translat the following from English into {language}"),
+        ("user","{text}")
+        ])
+
+# 构建阿里云百炼大模型客户端
+llm = ChatOpenAI(
+        model="qwen-plus"
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/vi"
+        openai_api_key=load_key("BAILIAN_API_KEY"),
+        )
+# 结果解析器 StrOutputParser 会 AIMessage 转换成为str，实际上就是获取 AIMessage 的content属性。
+parser = StrOutputParser()
+# 构建链
+chain = prompt_template | llm | parser
+# 直接调用链
+print(chain.invoke({"text":"nice to meet you", "language":"chinese"}))
+```
+> 
+> [4]689毫秒
+> 很高兴见到你。
+> 
+
+### 3-构建langserver服务端
+langserver中整合了一系列的工具和方法，使得构建一个服务端变得十分简单。
+
+```py
+from fastapi import FastAPI
+from Langserve import add_routes
+
+#构建服务端对象
+app=FastAPI(title="大模型语言翻译助手",
+            version="v1.0",
+            description="基于LangChain框架构建的大模型语言翻译助手" )
+
+#添加路由信息
+add_routes(
+    app,
+    chain,
+    path="/langchainDemo")
+
+#启动服务
+import uvicorn
+uvicorn.run(app,host="0.0.0.0", port=8000)
+```
+
+ 
+
+
+注意，这个方法在jupyternotebook环境中是无法执行的，因为jupyter本身就需要启动一个web服务，你不可能在一个web服务中又启动一个新的Web服务。
+我们可以把这些代码整合到 一个单独的python文件中。
+```sh
+!python ./Langserver/myserver.py
+```
+
+启动完成后，就可以看到LangServe已经启动了多个访问端口：
+![/start-Langserver-myserver](img_quickstart/start-Langserver-myserver.png)
+
+### langserve 客户端
+最后，langserve中还提供了一个客户端，可以方便的调用langserve暴露出的服务。
+
+```py
+from langserve import RemoteRunnable
+# RemoteRunnable也可以加入 LCEL的chain中
+client = RemoteRunnable("http://127.0.0.1:8000/langchainDemo")
+client.invoke({"text":"nice to meet you","language":"Chinese"})
+```
+
+## 2、使用Gradio快速构建前端页面
+Gradio是Huggingface开源的一个用于构建交互式Web应用程序的库，他可以方便的构建一个前端页面，用来展示你的大模型服务。
+主打的也同样是一个简单。甚至不需要有HTML、CSS或者网页开发的经验，就可以快速构建一个用于验证大模型的前端页面。
+gradio文档官网：https://www.gradio.app/docs/python-client/introduction
+
+首先同样是需要安装Gradio的依赖
+```sh
+#安装Gradio依赖。要求python版本>=3.10
+!pip install -qU gradio
+```
+
+然后，对于Gradio，不需要太多的基础，直接来一个简单粗暴的案例，就能快速上手Gradio
+```py
+import gradio as gr
+
+def greet(name, intensity):
+    return "Hello, " + name + "!" * int(intensity)
+
+demo = gr.Interface(
+        fn=greet,
+        inputs=[gr.Text(label="Name"), 
+                gr.slider(label="Intensity", minimum=0, maximum=10, step=1)
+                ],
+        outputs=[gr.Text(label="Output")],
+    )
+
+demo.launch() #share=True表示可以基于HuggingFace的虚拟服务直接分享这个页面给其他人。国内一般无法正常分享
+```
+![gradio-demo-display](img_quickstart/gradio-demo-display.png)
+
+
+```py
+#停止服务
+demo.cLoseO
+```
+
+interface可以说是Gradio最核心的组件，直接指定了从inputs组件中输入数据，交由fn指定的函数进行处理，然后结果输出到outputs组件当中。
+
+Gradio中直接定义了非常多的组件，不需要管样式、布局，甚至不需要写HTML、CSS，直接声明你需要用哪些组件就行。Gradio所有支持的组件列表如下：
+
+["Audio","BarPlot","Button","Chatbot","ChatMessage","ClearButton","Component","component""get_component_instance","_Keywords"，]
+当然，声明组件的时候，也可以用交互式的方法声明。例如示例中声明的interface，等价于
+```py
+demo = gr.Interface(
+    fn=greet,
+    inputs=[gr.Text(label="Name"), gr.Slider(label="Intensity", minimum=0, maximum=10, step=1)],
+    outputs=[gr.Text(label="Output")],
+)
+```
+在interface中，还有很多补充的参数可以选择。例如 live=True，则会自动更新，只要输入框有变化，就会自动更新。
+
+
+当然，除了这种抽盲盒式的构建页面，也可以像传统页面开发一样，自定义组件布局，定制组件的业务逻辑。例如：
+```py
+import gradio as gr
+
+with gr.Blocks() as demo:
+    text_count = gr.State(1)
+    add_btn = gr.Button("Add Box")
+    add_btn.click(lambda x: x + 1 text_count, text_count)
+
+    @gr.render(inputs=text_count)
+    def render_count(count):
+        boxes = []
+        for i in range(count):
+            box = gr.Textbox(key=i, label=f"Box {i}")
+            boxes.append(box)
+
+        def merge(*args):
+            return " ".join(args)
+    
+        merge_btn.click(merge, boxes, output)
+
+    merge_btn = gr.Button("Merge")
+    output = gr.Textbox(label="Merged Output")
+
+demo.launch()
+```
+
+![gr-Blocks](img_quickstart/gr-Blocks.png)
+
+有了 Gradio 后，我们就可以快速的复刻出之前 langserve 的 playground 页面了。这里就不再重复了，直接给出代码。
+
+```py
+import gradio as gr
+
+from langchain_core.output_parsers import SgroutputParser
+from langchain_core.prompts import ChatPromptTemplate
+
+from config.load_key import load_key
+from Langchain_openai import ChatopenAI
+
+# 提示词模板
+prompt_template = ChatPromptTemplate.from_messages([
+        ("system","Translat the following from English into {language}"),
+        ("user","{text}")
+        ])
+# 构建阿里云百炼大模型客户端
+llm = ChatOpenAI(
+        model="gwen-pLus"
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
+        openai_api_key=load_key("BAILIAN_API_KEY"),
+        )
+
+# 结果解析器 StrOutputParser会AIMessage转换成为str，实际上就是获取AIMessage的content属性。
+parser = StroutputParser()
+# 构建链
+chain = prompt_template | llm  | parser
+
+
+
+def get_model_response（language,text):
+    request = {"language":language,"text":text}
+    response = chain.invoke（request)
+    return response
+
+def process_input(language, text)
+    if language and text:
+        response = get_model_response(language, text)
+        return response
+    else:
+        return "Unsupported Language"
+
+
+with gr.Blocks() as demo:
+    gr.Markdown("# LangServe Playground")
+    with gr.Row():
+        with gr.ColumnO:
+            gr.Markdown("## Try it")
+            inputs_language = gr.Textbox(label="LANGUAGE*", placehoLder="请输入语言", value="中文")
+            inputs_text = gr.Textbox(label="TEXT*",placeholder="请输入文本",value="how are you")
+            btn_start = gr.Button("Start", variant="primary")
+        with gr.Column():
+            output_text = gr.Textbox(label="Output")
+
+    btn_start.click(process_input, inputs=[inputs_language, inputs_text], outputs=[output_text])
+
+demo.Launch()
+
+```
+![gradio-langserve](img_quickstart/gradio-langserve.png)
+
+实际上，这个页面就是直接抓取截图，交给A大模型生成的。如果你还有更多更复杂的页面交互设计，交给AI大模型是一个不错的选择。
+
+### 总结
+在课程中一直在强调，AI大模型是一个划时代的工具。但是如何把AI大模型这个工具用得更好，这是现在整个业界都在思考的问题。
+这一章节是将AI大模型与传统的B/S应用进行整合这样即能发挥AI大模型强大的推理能力，又能吸收传统B/S应用的业务经验
+
